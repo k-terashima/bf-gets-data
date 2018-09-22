@@ -73,7 +73,7 @@ func main() {
 			go func(i int, D Data) {
 				ti = append(ti, D.Tickers)
 				or = append(or, D.Orderbooks)
-				if i%500 == 0 {
+				if i%100 == 0 {
 					if err := uploadStrage("ticker", ti); err != nil {
 						log.Error(err)
 						return
