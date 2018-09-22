@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"firebase.google.com/go/db"
+
 	firebase "firebase.google.com/go"
 	"github.com/k-terashima/bf-gets-data/public"
 	"github.com/labstack/gommon/log"
@@ -31,6 +33,11 @@ func main() {
 		ti []public.Ticker
 		or []public.Orderbook
 	)
+
+	db, ctx, err := connDB()
+	if err != nil {
+		log.Error(err)
+	}
 
 	for i := 0; ; i++ {
 		var (
@@ -73,18 +80,20 @@ func main() {
 			go func(i int, D Data) {
 				ti = append(ti, D.Tickers)
 				or = append(or, D.Orderbooks)
-				if i%100 == 0 {
-					if err := uploadStrage("ticker", ti); err != nil {
+				if i%50 == 0 {
+					if err := uploadStrage(db, ctx, "ticker", ti); err != nil {
 						log.Error(err)
 						return
 					}
-					if err := uploadStrage("orderbook", or); err != nil {
+					ti = []public.Ticker{}
+					if err := uploadStrage(db, ctx, "orderbook", or); err != nil {
 						log.Error(err)
 						return
 					}
+					or = []public.Orderbook{}
 				}
 
-				if err := uploadStrage("execute", D.Executes); err != nil {
+				if err := uploadStrage(db, ctx, "execute", D.Executes); err != nil {
 					log.Error(err)
 					return
 				}
@@ -104,12 +113,7 @@ func main() {
 
 }
 
-func uploadStrage(where string, o interface{}) error {
-	start := time.Now()
-	defer func() {
-		end := time.Now()
-		fmt.Println("database: ", end.Sub(start))
-	}()
+func connDB() (*db.Client, context.Context, error) {
 	opt := option.WithCredentialsFile("./bit-bot-188313-f3427d1a8526.json")
 	config := &firebase.Config{
 		DatabaseURL: "https://bit-bot-188313.firebaseio.com",
@@ -118,15 +122,25 @@ func uploadStrage(where string, o interface{}) error {
 	app, err := firebase.NewApp(ctx, config, opt)
 	if err != nil {
 		log.Fatalf("error initializing app: %v", err)
-		return err
+		return nil, nil, err
 	}
 
 	db, err := app.Database(ctx)
 	if err != nil {
 		log.Error(err)
+		return nil, nil, err
 	}
 
-	path := "bitflyer/" + where
+	return db, ctx, nil
+}
+
+func uploadStrage(db *db.Client, ctx context.Context, where string, o interface{}) error {
+	start := time.Now()
+	defer func() {
+		end := time.Now()
+		fmt.Println("database: ", end.Sub(start))
+	}()
+	path := "bf/" + where
 	ref := db.NewRef(path)
 	if _, err := ref.Push(ctx, o); err != nil {
 		log.Errorf("Failed adding alovelace: %v", err)
