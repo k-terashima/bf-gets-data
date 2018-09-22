@@ -32,7 +32,7 @@ func main() {
 		or []public.Orderbook
 	)
 
-	for i := 0; i < 501; i++ {
+	for i := 0; ; i++ {
 		var (
 			start               = time.Now()
 			fix   time.Duration = 500 * time.Millisecond
